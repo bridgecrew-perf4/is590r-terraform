@@ -1,7 +1,7 @@
 provider "aws" {
     region = "us-east-1"
-    access_key = ""
-    secret_key = ""
+    access_key = "AKIAU7KIJ25UTKOM65K6"
+    secret_key = "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"
 }
 
 # 1. Create a VPC
@@ -98,7 +98,7 @@ resource "aws_security_group" "allow_web" {
 # 7. Create Network Interface
 resource "aws_network_interface" "web_server_nic" {
     subnet_id       = aws_subnet.subnet_1.id
-    private_ips     = ["10.0.0.50"]
+    private_ips     = ["10.0.1.50"]
     security_groups = [aws_security_group.allow_web.id]
 }
 
@@ -115,7 +115,7 @@ resource "aws_instance" "ec2" {
     ami           = "ami-02fe94dee086c0c37"
     instance_type = "t2.micro"
     availability_zone = "us-east-1a"
-    key_name = "main_key" #1:33:42
+    key_name = "russianhackers" #1:33:42
     network_interface {
         device_index          = 0
         network_interface_id  = aws_network_interface.web_server_nic.id
