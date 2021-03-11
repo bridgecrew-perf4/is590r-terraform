@@ -132,3 +132,17 @@ resource "aws_instance" "ec2" {
         Name = "web_server"
     }
 }
+
+# 10. RDS
+resource "aws_db_instance" "default" {
+  allocated_storage    = 10
+  max_allocated_storage = 100
+  engine               = "postgresql"
+  engine_version       = "5.7"
+  instance_class       = "db.t2.micro"
+  name                 = "journaldb"
+  username             = "rh"
+  password             = "russianhackers"
+  parameter_group_name = "default.mysql5.7"
+  skip_final_snapshot  = true
+}
