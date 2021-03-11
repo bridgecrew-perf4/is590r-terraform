@@ -54,12 +54,66 @@ resource "aws_subnet" "subnet_1" {
 
 # 5.    Public Subnet for Prod ENV
 ############# TODO ###############
+resource "aws_subnet" "public_subnet" {
+    vpc_id     = aws_vpc.prod_vpc.id
+    cidr_block = "10.0.1.0/24"
+    availability_zone = "us-east-1a"
+    map_public_ip_on_launch = true ##### is this right?
+    tags = {
+        Name = "prod_subnet"
+    }
+}
+
+## subnet for DB
+resource "aws_db_subnet_group" "db_subnet_group" {
+    subnet_ids  = [aws_subnet.subnet_1.id]
+}
 
 
 # 6.    Security Group for Staging
 ############# TODO ###############
+resource "aws_security_group" "staging_sg" {
+    name        = "staging_sg"
+    description = "Allow web traffic"
+    vpc_id      = aws_vpc.prod_vpc.id
 
-# 7.    Security Group or Prod
+    ingress {
+        description = "HTTPS from VPC"
+        from_port   = 443
+        to_port     = 443
+        protocol    = "tcp"
+        cidr_blocks = ["0.0.0.0/0"]
+    }
+
+    ingress {
+        description = "HTTP from VPC"
+        from_port   = 80
+        to_port     = 80
+        protocol    = "tcp"
+        cidr_blocks = ["0.0.0.0/0"]
+    }
+
+    ingress {
+        description = "SSH from VPC"
+        from_port   = 22
+        to_port     = 22
+        protocol    = "tcp"
+        cidr_blocks = ["0.0.0.0/0"]
+    }
+
+    egress {
+        from_port   = 0
+        to_port     = 0
+        protocol    = "-1"
+        cidr_blocks = ["0.0.0.0/0"]
+    }
+
+    tags = {
+        Name = "staging_sg"
+    }
+}
+
+# 7.    Security Group for Prod
 resource "aws_security_group" "allow_web" {
     name        = "allow_web"
     description = "Allow web traffic"
@@ -116,6 +170,11 @@ resource "aws_eip" "one" {
   depends_on                = [aws_internet_gateway.gw]
 }
 
+output "server_public_ip" {
+  value = aws_eip.one.public_ip
+}
+
+
 # 10.   Ubuntu Server with Apache for the Front-end
 resource "aws_instance" "ec2" {
     ami           = "ami-02fe94dee086c0c37"
@@ -148,5 +207,40 @@ resource "aws_instance" "ec2" {
 #   12.1 Staging DB
 ############# TODO ###############
 
+resource "aws_db_instance" "testdb" {
+  source  = "terraform-aws-modules/rds/aws"
+  version = "PostgreSQL 12.5-R1"
+
+  identifier = "testdb"
+
+  engine            = "postgres"
+  engine_version    = "12.5"
+  instance_class    = "db.t2.micro" # this is the smallest db instance (1GB RAM). Might need to upgrade to db.t2.small --medium --large
+  allocated_storage = 5 # 5GB of storage
+
+  name     = "testdb"
+  username = "rh"
+  password = "russianhackers"
+  port     = "5432"
+  
+#   publicly_accessible = true
+
+  db_subnet_group_name = aws_db_subnet_group.db_subnet_group.id
+  # security group for db
+  vpc_security_group_ids = [aws_security_group.staging_sg.id] #add the ECS_sg once created
+
+  tags = {
+    Owner       = "user"
+    Environment = "staging"
+  }
+
+  # Snapshot name upon DB deletion
+  final_snapshot_identifier = "testdb"
+
+  # Database Deletion Protection
+  deletion_protection = true
+
+
 #   12.2 Prod DB
 ############# TODO ###############
+}
