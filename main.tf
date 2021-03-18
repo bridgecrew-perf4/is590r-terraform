@@ -207,38 +207,38 @@ resource "aws_instance" "ec2" {
 #   12.1 Staging DB
 ############# TODO ###############
 
-resource "aws_db_instance" "testdb" {
-  source  = "terraform-aws-modules/rds/aws"
-  version = "PostgreSQL 12.5-R1"
+# resource "aws_db_instance" "testdb" {
+#   source  = "terraform-aws-modules/rds/aws"
+#   version = "PostgreSQL 12.5-R1"
 
-  identifier = "testdb"
+#   identifier = "testdb"
 
-  engine            = "postgres"
-  engine_version    = "12.5"
-  instance_class    = "db.t2.micro" # this is the smallest db instance (1GB RAM). Might need to upgrade to db.t2.small --medium --large
-  allocated_storage = 5 # 5GB of storage
+#   engine            = "postgres"
+#   engine_version    = "12.5"
+#   instance_class    = "db.t2.micro" # this is the smallest db instance (1GB RAM). Might need to upgrade to db.t2.small --medium --large
+#   allocated_storage = 5 # 5GB of storage
 
-  name     = "testdb"
-  username = "rh"
-  password = "russianhackers"
-  port     = "5432"
+#   name     = "testdb"
+#   username = "rh"
+#   password = "russianhackers"
+#   port     = "5432"
   
-#   publicly_accessible = true
+# #   publicly_accessible = true
 
-  db_subnet_group_name = aws_db_subnet_group.db_subnet_group.id
-  # security group for db
-  vpc_security_group_ids = [aws_security_group.staging_sg.id] #add the ECS_sg once created
+#   db_subnet_group_name = aws_db_subnet_group.db_subnet_group.id
+#   # security group for db
+#   vpc_security_group_ids = [aws_security_group.staging_sg.id] #add the ECS_sg once created
 
-  tags = {
-    Owner       = "user"
-    Environment = "staging"
-  }
+#   tags = {
+#     Owner       = "user"
+#     Environment = "staging"
+#   }
 
-  # Snapshot name upon DB deletion
-  final_snapshot_identifier = "testdb"
+#   # Snapshot name upon DB deletion
+#   final_snapshot_identifier = "testdb"
 
-  # Database Deletion Protection
-  deletion_protection = true
+#   # Database Deletion Protection
+#   deletion_protection = true
 
 
 #   12.2 Prod DB
