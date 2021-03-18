@@ -201,11 +201,25 @@ resource "aws_instance" "ec2" {
 # 11.   ECS (container service)
 ############# TODO ###############
 
-# 12.   RDS
-############# TODO ###############
+module "ecs" {
+  source = "terraform-aws-modules/ecs/aws"
 
-#   12.1 Staging DB
-############# TODO ###############
+  name = "rh-ecs"
+
+  container_insights = true
+
+  capacity_providers = ["FARGATE", "FARGATE_SPOT"]
+
+  default_capacity_provider_strategy = [
+    {
+      capacity_provider = "FARGATE_SPOT"
+    }
+  ]
+
+  tags = {
+    Environment = "Development"
+  }
+}
 
 # resource "aws_db_instance" "testdb" {
 #   source  = "terraform-aws-modules/rds/aws"
