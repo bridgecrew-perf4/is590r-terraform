@@ -2,8 +2,9 @@ provider "aws" {
     region = "us-east-1"
     access_key = "AKIAU7KIJ25UTKOM65K6"
     secret_key = "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"
+    # access_key = ${env.TF_VAR_ak}
+    # secret_key = ${env.TF_VAR_sk}
 }
-
 # 1.    VPC
 resource "aws_vpc" "prod_vpc" {
   cidr_block       = "10.0.0.0/16"
@@ -42,23 +43,11 @@ resource "aws_route_table_association" "a" {
     route_table_id = aws_route_table.prod_route_table.id
 }
 
-# 4.    Private Subnet for Staging ENV
+# 4.    Private Subnet for Prod ENV
 resource "aws_subnet" "subnet_1" {
     vpc_id     = aws_vpc.prod_vpc.id
     cidr_block = "10.0.1.0/24"
     availability_zone = "us-east-1a"
-    tags = {
-        Name = "prod_subnet"
-    }
-}
-
-# 5.    Public Subnet for Prod ENV
-############# TODO ###############
-resource "aws_subnet" "public_subnet" {
-    vpc_id     = aws_vpc.prod_vpc.id
-    cidr_block = "10.0.1.0/24"
-    availability_zone = "us-east-1a"
-    map_public_ip_on_launch = true ##### is this right?
     tags = {
         Name = "prod_subnet"
     }
@@ -257,4 +246,4 @@ module "ecs" {
 
 #   12.2 Prod DB
 ############# TODO ###############
-}
+# 
