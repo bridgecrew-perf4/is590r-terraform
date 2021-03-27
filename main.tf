@@ -52,10 +52,19 @@ resource "aws_subnet" "subnet_1" {
         Name = "prod_subnet"
     }
 }
+# 4.    Private Subnet for Prod ENV 2
+resource "aws_subnet" "subnet_2" {
+    vpc_id     = aws_vpc.prod_vpc.id
+    cidr_block = "10.0.2.0/24"
+    availability_zone = "us-east-1b"
+    tags = {
+        Name = "prod_subnet2"
+    }
+}
 
 ## subnet for DB
 resource "aws_db_subnet_group" "db_subnet_group" {
-    subnet_ids  = [aws_subnet.subnet_1.id]
+    subnet_ids  = [aws_subnet.subnet_1.id, aws_subnet.subnet_2.id]
 }
 
 
@@ -187,27 +196,73 @@ resource "aws_instance" "ec2" {
     }
 }
 
+
 # 11.   ECS (container service)
 ############# TODO ###############
 
-module "ecs" {
-  source = "terraform-aws-modules/ecs/aws"
+# module "ecs" {
+#   source = "terraform-aws-modules/ecs/aws"
 
-  name = "rh-ecs"
+#   name = "rh-ecs"
 
-  container_insights = true
+#   container_insights = true
 
-  capacity_providers = ["FARGATE", "FARGATE_SPOT"]
+#   capacity_providers = ["FARGATE", "FARGATE_SPOT"]
 
-  default_capacity_provider_strategy = [
-    {
-      capacity_provider = "FARGATE_SPOT"
-    }
-  ]
+#   default_capacity_provider_strategy = [
+#     {
+#       capacity_provider = "FARGATE_SPOT"
+#     }
+#   ]
 
-  tags = {
-    Environment = "Development"
+#   create_ecs = true
+
+#   tags = {
+#     Environment = "Development"
+#   }
+# }
+
+resource "aws_ecs_cluster" "rh-ecs-cluster" {
+  name = "journal-ecs"
+}
+
+resource "aws_ecs_service" "rh-ecs-service-two" {
+  name            = "journal-app"
+  cluster         = aws_ecs_cluster.rh-ecs-cluster.id
+  task_definition = aws_ecs_task_definition.rh-ecs-task-definition.arn
+  launch_type     = "FARGATE"
+  network_configuration {
+    subnets          = [aws_subnet.subnet_1.id]
+    assign_public_ip = true
   }
+  desired_count = 2
+}
+
+resource "aws_ecs_task_definition" "rh-ecs-task-definition" {
+  family                   = "ecs-task-definition-rh"
+  network_mode             = "awsvpc"
+  requires_compatibilities = ["FARGATE"]
+  memory                   = "1024"
+  cpu                      = "512"
+  execution_role_arn       = "arn:aws:iam::342138410857:role/JournalECS"
+  container_definitions    = <<EOF
+[
+  {
+    "name": "journal-container",
+    "image": "342138410857.dkr.ecr.us-east-1.amazonaws.com/journalapp",
+    "memory": 1024,
+    "cpu": 512,
+    "essential": true,
+    "entryPoint": ["/"],
+    "portMappings": [
+      {
+        "containerPort": 80,
+        "hostPort": 80
+      }
+    ]
+  }
+]
+EOF
 }
 
 # resource "aws_db_instance" "testdb" {
@@ -246,4 +301,4 @@ module "ecs" {
 
 #   12.2 Prod DB
 ############# TODO ###############
-# 
+# }
