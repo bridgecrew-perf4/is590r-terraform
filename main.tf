@@ -207,12 +207,12 @@ resource "aws_ecs_task_definition" "rh_task_definition" {
   [
     {
       "name": "rh-task-definition",
-      "image": "342138410857.dkr.ecr.us-east-1.amazonaws.com/ecs-test:latest",
+      "image": "342138410857.dkr.ecr.us-east-1.amazonaws.com/journalapp:latest",
       "essential": true,
       "portMappings": [
         {
-          "containerPort": 3000,
-          "hostPort": 3000
+          "containerPort": 8080,
+          "hostPort": 8080
         }
       ],
       "memory": 512,
@@ -258,7 +258,7 @@ resource "aws_ecs_service" "rh_ecs_service" {
   load_balancer {
     target_group_arn = "${aws_lb_target_group.rh_target_group.arn}" # Referencing our target group
     container_name   = "${aws_ecs_task_definition.rh_task_definition.family}"
-    container_port   = 3000 # Specifying the container port
+    container_port   = 8080 # Specifying the container port
   }
 
   network_configuration {
