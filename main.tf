@@ -196,109 +196,149 @@ resource "aws_instance" "ec2" {
     }
 }
 
-
-# 11.   ECS (container service)
-############# TODO ###############
-
-# module "ecs" {
-#   source = "terraform-aws-modules/ecs/aws"
-
-#   name = "rh-ecs"
-
-#   container_insights = true
-
-#   capacity_providers = ["FARGATE", "FARGATE_SPOT"]
-
-#   default_capacity_provider_strategy = [
-#     {
-#       capacity_provider = "FARGATE_SPOT"
-#     }
-#   ]
-
-#   create_ecs = true
-
-#   tags = {
-#     Environment = "Development"
-#   }
-# }
-
-resource "aws_ecs_cluster" "rh-ecs-cluster" {
-  name = "journal-ecs"
+### Create ECS Cluster
+resource "aws_ecs_cluster" "rh_cluster" {
+  name = "rh-cluster"
 }
 
-resource "aws_ecs_service" "rh-ecs-service-two" {
-  name            = "journal-app"
-  cluster         = aws_ecs_cluster.rh-ecs-cluster.id
-  task_definition = aws_ecs_task_definition.rh-ecs-task-definition.arn
-  launch_type     = "FARGATE"
-  network_configuration {
-    subnets          = [aws_subnet.subnet_1.id]
-    assign_public_ip = true
-  }
-  desired_count = 2
-}
-
-resource "aws_ecs_task_definition" "rh-ecs-task-definition" {
-  family                   = "ecs-task-definition-rh"
-  network_mode             = "awsvpc"
+resource "aws_ecs_task_definition" "rh_task_definition" {
+  family                   = "rh-task-definition" # 
+  container_definitions    = <<DEFINITION
+  [
+    {
+      "name": "rh-task-definition",
+      "image": "342138410857.dkr.ecr.us-east-1.amazonaws.com/ecs-test:latest",
+      "essential": true,
+      "portMappings": [
+        {
+          "containerPort": 3000,
+          "hostPort": 3000
+        }
+      ],
+      "memory": 512,
+      "cpu": 256
+    }
+  ]
+  DEFINITION
   requires_compatibilities = ["FARGATE"]
-  memory                   = "1024"
-  cpu                      = "512"
-  execution_role_arn       = "arn:aws:iam::342138410857:role/JournalECS"
-  container_definitions    = <<EOF
-[
-  {
-    "name": "journal-container",
-    "image": "342138410857.dkr.ecr.us-east-1.amazonaws.com/journalapp",
-    "memory": 1024,
-    "cpu": 512,
-    "essential": true,
-    "entryPoint": ["/"],
-    "portMappings": [
-      {
-        "containerPort": 80,
-        "hostPort": 80
-      }
-    ]
-  }
-]
-EOF
+  network_mode             = "awsvpc"    
+  memory                   = 512         # Specifying the memory our container requires
+  cpu                      = 256         # Specifying the CPU our container requires
+  execution_role_arn       = "${aws_iam_role.ecsTaskExecutionRole.arn}"
 }
 
-# resource "aws_db_instance" "testdb" {
-#   source  = "terraform-aws-modules/rds/aws"
-#   version = "PostgreSQL 12.5-R1"
+resource "aws_iam_role" "ecsTaskExecutionRole" {
+  name               = "ecsTaskExecutionRole"
+  assume_role_policy = "${data.aws_iam_policy_document.assume_role_policy.json}"
+}
 
-#   identifier = "testdb"
+data "aws_iam_policy_document" "assume_role_policy" {
+  statement {
+    actions = ["sts:AssumeRole"]
 
-#   engine            = "postgres"
-#   engine_version    = "12.5"
-#   instance_class    = "db.t2.micro" # this is the smallest db instance (1GB RAM). Might need to upgrade to db.t2.small --medium --large
-#   allocated_storage = 5 # 5GB of storage
+    principals {
+      type        = "Service"
+      identifiers = ["ecs-tasks.amazonaws.com"]
+    }
+  }
+}
 
-#   name     = "testdb"
-#   username = "rh"
-#   password = "russianhackers"
-#   port     = "5432"
+resource "aws_iam_role_policy_attachment" "ecsTaskExecutionRole_policy" {
+  role       = "${aws_iam_role.ecsTaskExecutionRole.name}"
+  policy_arn = "arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy"
+}
+
+resource "aws_ecs_service" "rh_ecs_service" {
+  name            = "rh-ecs-service"                             # Naming our first service
+  cluster         = "${aws_ecs_cluster.rh_cluster.id}"             # Referencing our created Cluster
+  task_definition = "${aws_ecs_task_definition.rh_task_definition.arn}" # Referencing the task our service will spin up
+  launch_type     = "FARGATE"
+  desired_count   = 3 # Setting the number of containers we want deployed to 3
+
+  load_balancer {
+    target_group_arn = "${aws_lb_target_group.rh_target_group.arn}" # Referencing our target group
+    container_name   = "${aws_ecs_task_definition.rh_task_definition.family}"
+    container_port   = 3000 # Specifying the container port
+  }
+
+  network_configuration {
+    subnets          = ["${aws_subnet.subnet_1.id}", "${aws_subnet.subnet_2.id}"]
+    assign_public_ip = true # Providing our containers with public IPs
+    security_groups = ["${aws_security_group.service_security_group.id}"]
+  }
+}
+
+### Create security group for the network configuration of the AWS service
+resource "aws_security_group" "service_security_group" {
+  vpc_id      = aws_vpc.prod_vpc.id
   
-# #   publicly_accessible = true
+  ingress {
+    from_port = 0
+    to_port   = 0
+    protocol  = "-1"
+    # Only allowing traffic in from the load balancer security group
+    security_groups = ["${aws_security_group.load_balancer_security_group.id}"]
+  }
 
-#   db_subnet_group_name = aws_db_subnet_group.db_subnet_group.id
-#   # security group for db
-#   vpc_security_group_ids = [aws_security_group.staging_sg.id] #add the ECS_sg once created
+  egress {
+    from_port   = 0 # Allowing any incoming port
+    to_port     = 0 # Allowing any outgoing port
+    protocol    = "-1" # Allowing any outgoing protocol 
+    cidr_blocks = ["0.0.0.0/0"] # Allowing traffic out to all IP addresses
+  }
+}
 
-#   tags = {
-#     Owner       = "user"
-#     Environment = "staging"
-#   }
+resource "aws_alb" "application_load_balancer" {
+  name               = "rh-lb-tf" # Naming our load balancer
+  load_balancer_type = "application"
+  subnets = [ # Referencing the default subnets
+    "${aws_subnet.subnet_1.id}",
+    "${aws_subnet.subnet_2.id}"
+    ]
+  # Referencing the security group made for the load balancer (below)
+  security_groups = ["${aws_security_group.load_balancer_security_group.id}"]
+}
 
-#   # Snapshot name upon DB deletion
-#   final_snapshot_identifier = "testdb"
+# Creating a security group specifically for the load balancer
+resource "aws_security_group" "load_balancer_security_group" {
+  vpc_id        = aws_vpc.prod_vpc.id
+  
+  ingress {
+    from_port   = 80 # Allowing traffic in from port 80
+    to_port     = 80
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"] # Allowing traffic in from all sources
+  }
 
-#   # Database Deletion Protection
-#   deletion_protection = true
+  egress {
+    from_port   = 0 # Allowing any incoming port
+    to_port     = 0 # Allowing any outgoing port
+    protocol    = "-1" # Allowing any outgoing protocol 
+    cidr_blocks = ["0.0.0.0/0"] # Allowing traffic out to all IP addresses
+  }
+}
 
+### Specify where to direct the traffic on the website
+resource "aws_lb_target_group" "rh_target_group" {
+  name        = "rh-target-group"
+  port        = 80
+  protocol    = "HTTP"
+  target_type = "ip"
+  vpc_id      = "${aws_vpc.prod_vpc.id}" # Referencing the prod VPC
+  health_check {
+    matcher = "200,301,302"
+    path = "/"
+  }
 
-#   12.2 Prod DB
-############# TODO ###############
-# }
+  depends_on = ["aws_alb.application_load_balancer"]
+}
+
+resource "aws_lb_listener" "listener" {
+  load_balancer_arn = "${aws_alb.application_load_balancer.arn}" # References the load balancer
+  port              = "80"
+  protocol          = "HTTP"
+  default_action {
+    type             = "forward"
+    target_group_arn = "${aws_lb_target_group.rh_target_group.arn}" # References the provided target group
+  }
+}
