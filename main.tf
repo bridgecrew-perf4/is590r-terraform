@@ -224,12 +224,12 @@ resource "aws_ecs_task_definition" "rh_task_definition" {
   network_mode             = "awsvpc"    
   memory                   = 512         # Specifying the memory our container requires
   cpu                      = 256         # Specifying the CPU our container requires
-  execution_role_arn       = "${aws_iam_role.ecsTaskExecutionRole.arn}"
+  execution_role_arn       = aws_iam_role.ecsTaskExecutionRole.arn
 }
 
 resource "aws_iam_role" "ecsTaskExecutionRole" {
   name               = "ecsTaskExecutionRole"
-  assume_role_policy = "${data.aws_iam_policy_document.assume_role_policy.json}"
+  assume_role_policy = data.aws_iam_policy_document.assume_role_policy.json
 }
 
 data "aws_iam_policy_document" "assume_role_policy" {
@@ -244,27 +244,27 @@ data "aws_iam_policy_document" "assume_role_policy" {
 }
 
 resource "aws_iam_role_policy_attachment" "ecsTaskExecutionRole_policy" {
-  role       = "${aws_iam_role.ecsTaskExecutionRole.name}"
+  role       = aws_iam_role.ecsTaskExecutionRole.name
   policy_arn = "arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy"
 }
 
 resource "aws_ecs_service" "rh_ecs_service" {
   name            = "rh-ecs-service"                             # Naming our first service
-  cluster         = "${aws_ecs_cluster.rh_cluster.id}"             # Referencing our created Cluster
-  task_definition = "${aws_ecs_task_definition.rh_task_definition.arn}" # Referencing the task our service will spin up
+  cluster         = aws_ecs_cluster.rh_cluster.id                # Referencing our created Cluster
+  task_definition = aws_ecs_task_definition.rh_task_definition.arn # Referencing the task our service will spin up
   launch_type     = "FARGATE"
   desired_count   = 3 # Setting the number of containers we want deployed to 3
 
   load_balancer {
-    target_group_arn = "${aws_lb_target_group.rh_target_group.arn}" # Referencing our target group
-    container_name   = "${aws_ecs_task_definition.rh_task_definition.family}"
+    target_group_arn = aws_lb_target_group.rh_target_group.arn # Referencing our target group
+    container_name   = aws_ecs_task_definition.rh_task_definition.family
     container_port   = 8080 # Specifying the container port
   }
 
   network_configuration {
-    subnets          = ["${aws_subnet.subnet_1.id}", "${aws_subnet.subnet_2.id}"]
+    subnets          = [aws_subnet.subnet_1.id, aws_subnet.subnet_2.id]
     assign_public_ip = true # Providing our containers with public IPs
-    security_groups = ["${aws_security_group.service_security_group.id}"]
+    security_groups = [aws_security_group.service_security_group.id]
   }
 }
 
@@ -277,7 +277,7 @@ resource "aws_security_group" "service_security_group" {
     to_port   = 0
     protocol  = "-1"
     # Only allowing traffic in from the load balancer security group
-    security_groups = ["${aws_security_group.load_balancer_security_group.id}"]
+    security_groups = [aws_security_group.load_balancer_security_group.id]
   }
 
   egress {
@@ -292,11 +292,11 @@ resource "aws_alb" "application_load_balancer" {
   name               = "rh-lb-tf" # Naming our load balancer
   load_balancer_type = "application"
   subnets = [ # Referencing the default subnets
-    "${aws_subnet.subnet_1.id}",
-    "${aws_subnet.subnet_2.id}"
+    aws_subnet.subnet_1.id,
+    aws_subnet.subnet_2.id
     ]
   # Referencing the security group made for the load balancer (below)
-  security_groups = ["${aws_security_group.load_balancer_security_group.id}"]
+  security_groups = [aws_security_group.load_balancer_security_group.id]
 }
 
 # Creating a security group specifically for the load balancer
@@ -324,7 +324,7 @@ resource "aws_lb_target_group" "rh_target_group" {
   port        = 80
   protocol    = "HTTP"
   target_type = "ip"
-  vpc_id      = "${aws_vpc.prod_vpc.id}" # Referencing the prod VPC
+  vpc_id      = aws_vpc.prod_vpc.id # Referencing the prod VPC
   health_check {
     matcher = "200,301,302"
     path = "/"
@@ -334,11 +334,11 @@ resource "aws_lb_target_group" "rh_target_group" {
 }
 
 resource "aws_lb_listener" "listener" {
-  load_balancer_arn = "${aws_alb.application_load_balancer.arn}" # References the load balancer
+  load_balancer_arn = aws_alb.application_load_balancer.arn # References the load balancer
   port              = "80"
   protocol          = "HTTP"
   default_action {
     type             = "forward"
-    target_group_arn = "${aws_lb_target_group.rh_target_group.arn}" # References the provided target group
+    target_group_arn = aws_lb_target_group.rh_target_group.arn # References the provided target group
   }
 }
