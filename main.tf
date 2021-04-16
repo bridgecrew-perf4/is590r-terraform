@@ -55,10 +55,12 @@ resource "aws_route_table_association" "b" {
 ### Subnets for prod
 resource "aws_subnet" "subnet_1" {
   vpc_id     = aws_vpc.prod_vpc.id
+  availability_zone = "us-east-1a"
   cidr_block = "10.0.0.0/26"
 }
 resource "aws_subnet" "subnet_2" {
   vpc_id     = aws_vpc.prod_vpc.id
+  availability_zone = "us-east-1b"
   cidr_block = "10.0.0.64/26"
 }
 
