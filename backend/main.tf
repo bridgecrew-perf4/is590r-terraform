@@ -3,19 +3,17 @@ provider "aws" {
     region = "us-east-1"
     access_key = var.aws_access_key
     secret_key = var.aws_secret_key
-    # access_key = ${env.TF_VAR_ak}
-    # secret_key = ${env.TF_VAR_sk}
 }
 
 ### Variables currently stored in .tfvars file
 variable "aws_access_key" {
   description = "AWS Access Key"
-  type = "string"
+  type = string
 }
 
 variable "aws_secret_key" {
   description = "AWS Secret Key"
-  type = "string"
+  type = string
 }
 
 ### VPC
@@ -217,3 +215,13 @@ resource "aws_lb_listener" "rh-listener" {
     target_group_arn = aws_lb_target_group.rh-target-group.arn
   }
 }
+
+# resource "aws_lb_listener" "rh-listener-https" {
+#   load_balancer_arn = aws_lb.rh-lb.arn
+#   port              = "443"
+#   protocol          = "HTTPS"
+#   default_action {
+#     type             = "forward"
+#     target_group_arn = aws_lb_target_group.rh-target-group.arn
+#   }
+# }
