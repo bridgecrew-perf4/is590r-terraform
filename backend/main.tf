@@ -206,6 +206,7 @@ resource "aws_lb" "rh-lb" {//
   security_groups    = [aws_security_group.allow_web_sg.id]
   subnets            = [aws_subnet.subnet_1.id, aws_subnet.subnet_2.id]
 }
+
 resource "aws_lb_listener" "rh-listener" {
   load_balancer_arn = aws_lb.rh-lb.arn
   port              = "80"
@@ -216,12 +217,19 @@ resource "aws_lb_listener" "rh-listener" {
   }
 }
 
-# resource "aws_lb_listener" "rh-listener-https" {
-#   load_balancer_arn = aws_lb.rh-lb.arn
-#   port              = "443"
-#   protocol          = "HTTPS"
-#   default_action {
-#     type             = "forward"
-#     target_group_arn = aws_lb_target_group.rh-target-group.arn
-#   }
+resource "aws_lb_listener" "rh-listener-https" {
+  load_balancer_arn = aws_lb.rh-lb.arn
+  port              = "443"
+  protocol          = "HTTPS"
+  default_action {
+    type             = "forward"
+    target_group_arn = aws_lb_target_group.rh-target-group.arn 
+  }
+  certificate_arn = "arn:aws:acm:us-east-1:342138410857:certificate/68e75427-ac5d-4a23-9da4-74b46f4659a9"
+}
+
+# resource "aws_lb_listener_certificate" "ssl-cert" {
+#   listener_arn = aws_lb_listener.rh-listener-https.arn
+#   certificate_arn = "arn:aws:acm:us-east-1:342138410857:certificate/68e75427-ac5d-4a23-9da4-74b46f4659a9"
 # }
+
